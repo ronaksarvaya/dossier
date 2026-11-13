@@ -24,6 +24,7 @@ import { resumeContent, sectionsWithContent } from "@/lib/resume-content";
 import { sectionName } from "@/lib/resume-sections";
 import { loadThemes } from "@/lib/theme-data";
 import { userTimeZone } from "@/lib/time-zone";
+import { loadAllLikedProjects, loadApplicationProjects } from "@/lib/project-recommendations";
 
 import { ApplicationView } from "./application-view";
 import { metaLine } from "./meta";
@@ -47,7 +48,7 @@ export async function generateMetadata({ params }: PageProps<"/applications/[id]
 export default async function ApplicationPage({ params, searchParams }: PageProps<"/applications/[id]">) {
   const [{ id }, { tab }] = await Promise.all([params, searchParams]);
   await pullCalendar(id);
-  const [{ application, profile, liveProfile, sent, settings, extracted, resume, letter, email, includeReferences, sections, ownSections, letterDate }, aiReady, unitJobs, refineJobs, emailJobs, timeZone, google, emails, themes, resumeJobs, letterJobs, scoreJobs] =
+  const [{ application, profile, liveProfile, sent, settings, extracted, resume, letter, email, includeReferences, sections, ownSections, letterDate }, aiReady, unitJobs, refineJobs, emailJobs, timeZone, google, emails, themes, resumeJobs, letterJobs, scoreJobs, projectsData, allLikedProjects] =
     await Promise.all([
       loadDocuments(id),
       isAiConfigured(),
@@ -61,6 +62,8 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       findUnfinishedJobs(writeDocumentJobKey(id, "RESUME")),
       findUnfinishedJobs(writeDocumentJobKey(id, "COVER_LETTER")),
       findUnfinishedJobs(scoreResumeJobKey(id)),
+      loadApplicationProjects(id),
+      loadAllLikedProjects(),
     ]);
 
   const match = readJson(matchSchema, application.match);
@@ -172,6 +175,8 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
         tone,
         hasSummary: Boolean(resume?.units.some((unit) => unit.id === "summary" && unit.text.trim())),
       })}
+      initialProjects={projectsData}
+      initialAllLiked={allLikedProjects}
     />
   );
 }

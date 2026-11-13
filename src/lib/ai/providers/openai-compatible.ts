@@ -178,15 +178,21 @@ export class OpenAICompatibleProvider extends BaseProvider {
   ): Promise<{ answer: ChatAnswer; reasoned: boolean }> {
     const effort = noEffort ? undefined : this.reasoningEffort(call);
     const maxTokens = call.maxTokens + (thinks ? this.thinkingRoom() : 0);
-    // Without schema support, the schema goes into the instructions instead.
-    const system = call.json && json !== "schema" ? withJsonSchema(call.system, call.json.schema) : call.system;
-    const responseFormat = !call.json
-      ? {}
-      : json === "schema"
-        ? { response_format: zodResponseFormat(call.json.schema, call.json.name) }
-        : json === "object"
-          ? { response_format: { type: "json_object" as const } }
-          : {};
+    let system = call.json && json !== "schema" ? withJsonSchema(call.system, call.json.schema) : call.system;
+    let responseFormat: Record<string, unknown> = {};
+    if (call.json) {
+      if (json === "schema") {
+        try {
+          responseFormat = { response_format: zodResponseFormat(call.json.schema, call.json.name) };
+        } catch {
+          // zodResponseFormat rejected schema (e.g. non-nullable optional); fall back to JSON object mode
+          system = withJsonSchema(call.system, call.json.schema);
+          responseFormat = { response_format: { type: "json_object" as const } };
+        }
+      } else if (json === "object") {
+        responseFormat = { response_format: { type: "json_object" as const } };
+      }
+    }
     const completion = await this.client.chat.completions.create(
       {
         model: call.model,

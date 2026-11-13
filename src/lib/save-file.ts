@@ -16,13 +16,17 @@ export function saveFile(blob: Blob, fileName: string): void {
   const link = document.createElement("a");
   link.href = offered;
   link.download = fileName;
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
 }
 
-/** Downloads the file at `href`, under the name the server gives it. */
-export function downloadFrom(href: string): void {
+/** Downloads the file at `href`, under the name the server gives it or `fileName`. */
+export function downloadFrom(href: string, fileName?: string): void {
   const link = document.createElement("a");
   link.href = href;
-  link.download = "";
+  link.download = fileName ?? "";
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
 }

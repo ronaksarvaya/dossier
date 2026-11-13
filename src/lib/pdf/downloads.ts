@@ -43,10 +43,12 @@ export function heldPdf(id: string, now = Date.now()): { pdf: Uint8Array; fileNa
 
 /** A PDF as a download named `fileName`. */
 export function pdfDownload(pdf: Uint8Array, fileName: string): Response {
-  return new Response(Buffer.from(pdf), {
+  return new Response(pdf as unknown as BodyInit, {
+    status: 200,
     headers: {
       "content-type": "application/pdf",
       "content-disposition": contentDisposition(fileName),
+      "content-length": String(pdf.byteLength),
     },
   });
 }

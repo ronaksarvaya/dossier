@@ -37,17 +37,26 @@ describe("DownloadPdfButton", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("has the server render and hold the PDF, then downloads it from its link, saying it's on its way", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ url: "/api/pdf/held-1" })));
+  it("has the server generate and save the PDF, showing progress and success toasts without initiating browser download", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ success: true, filename: "resume-123.pdf", url: "/generated-pdfs/resume-123.pdf", size: 43629 })));
     render(<DownloadPdfButton href="/api/pdf?doc=base">Download PDF</DownloadPdfButton>);
     const link = screen.getByRole("link", { name: "Download PDF" });
     expect(link).toHaveAttribute("href", "/api/pdf?doc=base");
     await userEvent.click(link);
     expect(toast).toHaveBeenCalledWith("Rendering your PDF on the server. It'll download in a moment.");
     expect(fetch).toHaveBeenCalledWith("/api/pdf?doc=base", { method: "POST" });
-    // The server names the file; a link of its own saves in every browser.
-    expect(click).toHaveBeenCalledWith("", "/api/pdf/held-1");
+    expect(toast).toHaveBeenCalledWith(expect.stringContaining("PDF generated and saved successfully!"));
+    expect(click).not.toHaveBeenCalled();
     expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("shows an error notification when PDF saving fails", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ success: false }, { status: 500 })));
+    render(<DownloadPdfButton href="/api/pdf?doc=base">Download PDF</DownloadPdfButton>);
+    const link = screen.getByRole("link", { name: "Download PDF" });
+    await userEvent.click(link);
+    expect(toast).toHaveBeenCalledWith("Failed to generate or save PDF. Please try again.");
+    expect(click).not.toHaveBeenCalled();
   });
 
   it("saves a file that isn't held from the page, under the server's file name", async () => {

@@ -70,6 +70,7 @@ import type { GmailSender } from "./send-with-gmail";
 import { JobWatcher } from "./job-watcher";
 import { NotesTab } from "./notes-tab";
 import { PostingTab, type PostingData } from "./posting-tab";
+import { ProjectsTab } from "./projects-tab";
 import { RefinePanel, type ChatEntry } from "./refine-panel";
 import { StatusControl } from "./status-control";
 import { SectionsMenu } from "./sections-menu";
@@ -80,6 +81,7 @@ import { aboutWords, type Tab } from "./tabs";
 import { UnitFrame } from "./unit-frame";
 import { VersionHistory, type ViewedVersion } from "./version-history";
 import type { EmailView } from "@/lib/google/inbox-data";
+import type { ProjectRecommendation, ProjectRecommendationsData } from "@/lib/project-recommendations";
 
 
 /** A unit on the page: its document and id, e.g. "RESUME summary". */
@@ -185,6 +187,8 @@ export type ApplicationViewProps = {
   /** A reply still being written, e.g. since before a reload. */
   refining: string | null;
   suggestions: RefineSuggestions;
+  initialProjects?: ProjectRecommendationsData | null;
+  initialAllLiked?: Array<{ applicationId: string; company: string; jobTitle: string; project: ProjectRecommendation }>;
 };
 
 /**
@@ -229,6 +233,8 @@ export function ApplicationView({
   messages,
   refining,
   suggestions,
+  initialProjects = null,
+  initialAllLiked = [],
 }: ApplicationViewProps) {
   const router = useRouter();
   const [tab, setTab] = useState(initialTab);
@@ -717,6 +723,11 @@ export function ApplicationView({
             </TabsTrigger>
           )}
           <TabsTrigger value="posting">{score ? `Job posting · ${score.hit}/${score.total} match` : "Job posting"}</TabsTrigger>
+          <TabsTrigger value="projects">
+            {initialProjects && initialProjects.applicationId === application.id && initialProjects.projects.length > 0
+              ? `Projects · ${initialProjects.projects.filter((p) => !p.skipped).length}`
+              : "Projects"}
+          </TabsTrigger>
           <TabsTrigger value="notes">{notes > 0 ? `Notes · ${notes}` : "Notes"}</TabsTrigger>
         </TabsList>
       </ApplicationHeader>
@@ -838,6 +849,16 @@ export function ApplicationView({
             onAddSkill={(index) => addSkill(index)}
             facts={facts}
             setFacts={setFacts}
+          />
+        </TabsContent>
+
+        <TabsContent value="projects" className="flex min-h-0 min-w-0 flex-[999_1_480px]">
+          <ProjectsTab
+            key={application.id}
+            applicationId={application.id}
+            initialData={initialProjects?.applicationId === application.id ? initialProjects : null}
+            initialAllLiked={initialAllLiked}
+            aiReady={aiReady}
           />
         </TabsContent>
 

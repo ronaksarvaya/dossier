@@ -21,10 +21,12 @@ export function fileNameFrom(disposition: string | null): string | null {
   return /filename="([^"]*)"/i.exec(disposition)?.[1] ?? null;
 }
 
+type ProcessState = "idle" | "generating" | "saving" | "saved";
+
 /**
- * Downloads a PDF from /api/pdf. Rendering takes a moment, so it says so,
- * and a failure shows up as a toast instead of an error page. Without
- * JavaScript it's a plain link to the same file.
+ * Generates and saves a PDF to the server's public folder from /api/pdf.
+ * Rendering and saving takes a moment, so it indicates progress on the button
+ * and shows toasts. Duplicate clicks are prevented while running.
  */
 export function DownloadPdfButton({
   href,
@@ -36,9 +38,9 @@ export function DownloadPdfButton({
 }: {
   href: string;
   /**
-   * Whether `href` answers a POST by holding the file on the server and
-   * sending the link to download it from, as /api/pdf does. Browsers save
-   * that reliably; otherwise the file is fetched and saved from the page.
+   * Whether `href` answers a POST by saving the PDF on the server and
+   * returning its details, as /api/pdf does. Otherwise the file is fetched
+   * and saved via blob (e.g. data export).
    */
   held?: boolean;
   variant?: ButtonVariant;
@@ -47,28 +49,51 @@ export function DownloadPdfButton({
   progress?: string;
   children: ReactNode;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<ProcessState>("idle");
+  const busy = state !== "idle";
 
   const download = async () => {
-    setBusy(true);
+    setState("generating");
     toast(progress);
     try {
       const response = await fetch(href, held ? { method: "POST" } : undefined);
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        toast(body?.error ?? messages.unexpected);
+        toast(body?.error ?? "Failed to generate or save PDF. Please try again.");
+        setState("idle");
         return;
       }
       if (held) {
-        const { url } = (await response.json()) as { url: string };
-        downloadFrom(url);
+        setState("saving");
+        const data = (await response.json()) as { success?: boolean; filename?: string; url?: string; size?: number };
+        if (data.success && data.filename) {
+          toast(`PDF generated and saved successfully! (${data.filename})`);
+          setState("saved");
+          setTimeout(() => setState("idle"), 3000);
+        } else {
+          toast("Failed to generate or save PDF. Please try again.");
+          setState("idle");
+        }
       } else {
         saveFile(await response.blob(), fileNameFrom(response.headers.get("content-disposition")) ?? "document.pdf");
+        setState("idle");
       }
     } catch {
-      toast(messages.offline);
-    } finally {
-      setBusy(false);
+      toast("Failed to generate or save PDF. Please try again.");
+      setState("idle");
+    }
+  };
+
+  const label = () => {
+    switch (state) {
+      case "generating":
+        return "Generating PDF…";
+      case "saving":
+        return "Saving PDF…";
+      case "saved":
+        return "Saved successfully!";
+      default:
+        return children;
     }
   };
 
@@ -82,7 +107,7 @@ export function DownloadPdfButton({
       }}
       className={buttonClassName(variant, size, variant === "primary" ? "hover:text-on-primary" : undefined)}
     >
-      {busy ? "Rendering…" : children}
+      {label()}
     </a>
   );
 }

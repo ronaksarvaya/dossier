@@ -125,21 +125,16 @@ describe("GET /api/pdf", () => {
 });
 
 describe("POST /api/pdf, then GET /api/pdf/{id}", () => {
-  it("renders once and holds the PDF, for the browser to download from its own link", async () => {
+  it("renders the PDF and saves it to public/generated-pdfs/ returning metadata", async () => {
     const response = await post("?doc=resume&application=app1");
     expect(response.status).toBe(200);
-    const { url } = (await response.json()) as { url: string };
-    expect(url).toMatch(/^\/api\/pdf\/[0-9a-f-]{36}$/);
+    const { success, filename, url, size } = (await response.json()) as { success: boolean; filename: string; url: string; size: number };
+    expect(success).toBe(true);
+    expect(filename).toMatch(/^resume-[0-9a-f-]{36}\.pdf$/);
+    expect(url).toBe(`/generated-pdfs/${filename}`);
+    expect(size).toBe(4);
     expect(renderPdf).toHaveBeenCalledTimes(1);
     expect(renderPdf).toHaveBeenCalledWith("/print/resume/app1");
-
-    const download = await getHeld(url);
-    expect(download.status).toBe(200);
-    expect(download.headers.get("content-type")).toBe("application/pdf");
-    expect(download.headers.get("content-disposition")).toContain("Jane%20Doe%20%E2%80%93%20Ledgerly%20%E2%80%93%20Resume.pdf");
-    expect(download.headers.get("cache-control")).toBe("private, no-store");
-    expect(new Uint8Array(await download.arrayBuffer())).toEqual(new Uint8Array([37, 80, 68, 70]));
-    expect(renderPdf).toHaveBeenCalledTimes(1);
   });
 
   it("answers with the same errors as a direct download", async () => {
